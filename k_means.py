@@ -4,63 +4,99 @@ import pandas as pd
 from metric import pairwise
 
 
-def init(n_clusters=5, seed=None):
-    x = np.arange(200).reshape(-1, 2, 10)
-    n_samples = len(x)
+class KMeans:
+    def __init__(self, n_centers=8, init='k-means++', random_state=None,
+                 verbose=True):
+        self._n_centers = n_centers
+        self._init = self._validate_init(init)
+        self._random_state = random_state or np.random.RandomState()
+        self._verbose = verbose
 
-    rs = np.random.RandomState(seed)
+        self._centers = None
 
-    center_indices = None
-    while True:
-        # 1a. take one center c_1, chosen uniformly at random from x.
-        if center_indices is None:
-            center_indices = rs.choice(n_samples, 1)
-            continue
+    def _validate_init(self, init):
+        if init not in ('k-means++', 'random'):
+            raise ValueError('init: {} is not supported.'.format(init))
+        return init
 
-        # compute probability which the sample is selected as a new center.
-        pair_dist = pairwise(x, x[center_indices])
-        d_min = np.min(pair_dist, axis=1)
-        prob = d_min / np.sum(d_min)
+    def _init_centers(self, x):
+        if self._init == 'k-means++':
+            self._init_centers_k_means_plus_plus(x)
+        else:
+            self._init_centers_random(x)
 
-        # 1b. take a new center c_i, choosing with the above probability.
-        new_center_index = rs.choice(n_samples, 1, p=prob)
-        center_indices = np.concatenate([center_indices, new_center_index])
+    def _init_centers_k_means_plus_plus(self, x):
+        n_samples = len(x)
+        if n_samples < self._n_centers:
+            raise ValueError('the `n_samples` are less than the `n_centers`.')
 
-        # 1c. repeat step 1b until we have chosen a total of k centers.
-        if len(center_indices) == n_clusters:
-            break
+        center_indices = None
+        while True:
+            # 1a. take one center c_1, chosen uniformly at random from x.
+            if center_indices is None:
+                center_indices = self._random_state.choice(n_samples, 1)
+                continue
 
-    return x[center_indices]
+            # compute probability which the sample is selected as a new center.
+            pair_dist = pairwise(x, x[center_indices])
+            d_min = np.min(pair_dist, axis=1)
+            prob = d_min / np.sum(d_min)
 
+            # 1b. take a new center c_i, choosing with the above probability.
+            new_center_index = self._random_state.choice(n_samples, 1, p=prob)
+            center_indices = np.concatenate([center_indices, new_center_index])
 
-def k_means(x, n_clusters):
-    n_samples, n_features = x.shape
+            # 1c. repeat step 1b until we have chosen a total of k centers.
+            if len(center_indices) == self._n_centers:
+                break
 
-    # initialization
-    centers = x[np.random.choice(n_samples, n_clusters, replace=False)]
-    prev_assigned_indices, curr_assigned_indices = None, None
+        self._centers = x[center_indices]
 
-    curr_iter = 0
-    while True:
-        curr_iter += 1
-        print("iter:", curr_iter)
+    def _init_centers_random(self, x):
+        n_samples = len(x)
+        if n_samples < self._n_centers:
+            raise ValueError('the `n_samples` are less than the `n_centers`.')
 
-        # maximization step
-        distance = pairwise(x, centers)
-        curr_assigned_indices = np.argmin(distance, axis=1)
+        self._centers = self._random_state.choice(
+            n_samples, self._n_centers, replace=False)
 
-        # convergence check
-        if prev_assigned_indices is not None and \
-                np.array_equal(prev_assigned_indices, curr_assigned_indices):
-            break
+    def fit(self, x):
+        self._init_centers(x)
 
-        # expectation step
-        for ci in range(n_clusters):
-            centers[ci, :] = np.mean(x[curr_assigned_indices == ci], axis=0)
+        # initialization
+        prev_assigned_indices, curr_assigned_indices = None, None
 
-        prev_assigned_indices = curr_assigned_indices
+        t_iter = 0
+        while True:
+            t_iter += 1
+            if self._verbose:
+                print("iter:", t_iter)
 
-    return centers
+            # maximization step
+            distance = pairwise(x, self._centers)
+            curr_assigned_indices = np.argmin(distance, axis=1)
+
+            # convergence check
+            if prev_assigned_indices is not None and \
+                    np.all(prev_assigned_indices == curr_assigned_indices):
+                break
+
+            # expectation step
+            for ci in range(self._n_centers):
+                self._centers[ci, :] = np.mean(
+                    x[curr_assigned_indices == ci], axis=0)
+
+            prev_assigned_indices = curr_assigned_indices
+
+        return self._centers
+
+    @property
+    def centers(self):
+        return self._centers
+
+    @property
+    def n_centers(self):
+        return self._n_centers
 
 
 def main():
@@ -70,8 +106,8 @@ def main():
     print(df)
     x = np.array(df)[:, :-1].astype(np.float32)
 
-    n_clusters = 5
-    centers = k_means(x, n_clusters)
+    n_centers = 5
+    centers = KMeans(n_centers).fit(x)
     print(centers)
 
 
