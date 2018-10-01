@@ -4,6 +4,35 @@ import pandas as pd
 from metric import pairwise
 
 
+def init(n_clusters=5, seed=None):
+    x = np.arange(200).reshape(-1, 2, 10)
+    n_samples = len(x)
+
+    rs = np.random.RandomState(seed)
+
+    center_indices = None
+    while True:
+        # 1a. take one center c_1, chosen uniformly at random from x.
+        if center_indices is None:
+            center_indices = rs.choice(n_samples, 1)
+            continue
+
+        # compute probability which the sample is selected as a new center.
+        pair_dist = pairwise(x, x[center_indices])
+        d_min = np.min(pair_dist, axis=1)
+        prob = d_min / np.sum(d_min)
+
+        # 1b. take a new center c_i, choosing with the above probability.
+        new_center_index = rs.choice(n_samples, 1, p=prob)
+        center_indices = np.concatenate([center_indices, new_center_index])
+
+        # 1c. repeat step 1b until we have chosen a total of k centers.
+        if len(center_indices) == n_clusters:
+            break
+
+    return x[center_indices]
+
+
 def k_means(x, n_clusters):
     n_samples, n_features = x.shape
 
