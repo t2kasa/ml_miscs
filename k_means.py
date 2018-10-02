@@ -4,12 +4,10 @@ from metric import pairwise
 
 
 class KMeans:
-    def __init__(self, n_centers=8, init='k-means++', random_state=None,
-                 verbose=True):
+    def __init__(self, n_centers=8, init='k-means++', random_state=None):
         self._n_centers = n_centers
         self._init = self._validate_init(init)
         self._random_state = random_state or np.random.RandomState()
-        self._verbose = verbose
 
         self._centers = None
 
@@ -60,17 +58,11 @@ class KMeans:
             n_samples, self._n_centers, replace=False)
 
     def fit(self, x):
-        self._init_centers(x)
-
         # initialization
+        self._init_centers(x)
         prev_assigned_indices, curr_assigned_indices = None, None
 
-        t_iter = 0
         while True:
-            t_iter += 1
-            if self._verbose:
-                print("iter:", t_iter)
-
             # maximization step
             distance = pairwise(x, self._centers)
             curr_assigned_indices = np.argmin(distance, axis=1)
