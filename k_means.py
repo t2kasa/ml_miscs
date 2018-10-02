@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from metric import pairwise
 
@@ -97,19 +96,3 @@ class KMeans:
     @property
     def n_centers(self):
         return self._n_centers
-
-
-def main():
-    iris_url = 'http://archive.ics.uci.edu/ml/machine-learning-databases/' \
-               'iris/iris.data'
-    df = pd.read_csv(iris_url)
-    print(df)
-    x = np.array(df)[:, :-1].astype(np.float32)
-
-    n_centers = 5
-    centers = KMeans(n_centers).fit(x)
-    print(centers)
-
-
-if __name__ == '__main__':
-    main()
