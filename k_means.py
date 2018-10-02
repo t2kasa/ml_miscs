@@ -64,8 +64,7 @@ class KMeans:
 
         while True:
             # maximization step
-            distance = pairwise(x, self._centers)
-            curr_assigned_indices = np.argmin(distance, axis=1)
+            curr_assigned_indices = self._maximization_step(x)
 
             # convergence check
             if prev_assigned_indices is not None and \
@@ -73,13 +72,23 @@ class KMeans:
                 break
 
             # expectation step
-            for ci in range(self._n_centers):
-                self._centers[ci, :] = np.mean(
-                    x[curr_assigned_indices == ci], axis=0)
+            self._expectation_step(x, curr_assigned_indices)
 
             prev_assigned_indices = curr_assigned_indices
 
-        return self._centers
+    def fit_predict(self, x):
+        self.fit(x)
+        assigned_indices = self._maximization_step(x)
+        return assigned_indices
+
+    def _maximization_step(self, x):
+        distance = pairwise(x, self._centers)
+        assigned_indices = np.argmin(distance, axis=1)
+        return assigned_indices
+
+    def _expectation_step(self, x, assigned_indices):
+        for ci in range(self._n_centers):
+            self._centers[ci, :] = np.mean(x[assigned_indices == ci], axis=0)
 
     @property
     def centers(self):
