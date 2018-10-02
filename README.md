@@ -1,3 +1,4 @@
-## "Pattern Recognition in Machine Learning" in Python
+# ml_miscs
 
-PRML implementation samples.
+Miscellaneous machine learning algorithms.
+Main purpose of this repo is to practice/exercise.
