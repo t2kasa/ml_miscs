@@ -5,8 +5,8 @@ matplotlib.use('Qt5Agg')  # NOQA
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.animation import FuncAnimation
 from scipy.stats import norm, gaussian_kde
+from matplotlib.animation import FFMpegWriter
 
 
 class RandomWalker1D:
@@ -54,59 +54,73 @@ def resample(x_pre, observation, sigma=1.0):
     return resampled_particles
 
 
-class World:
-    def __init__(self):
+class HistoryItem:
+    def __init__(self, t, o_t, line, pdf):
+        self.t = t
+        self.o_t = o_t
+        self.line = line
+        self.pdf = pdf
+
+
+class ToySimulator:
+    def __init__(self, n_particles=300, history_size=5):
+        self.n_particles = n_particles
+        self.history_size = history_size
+
         self.fig, self.axes = plt.subplots(1, 1)
         self.toy = RandomWalker1D()
-        self.n_particles = 300
         self.particles = np.random.randn(self.n_particles)
+        self.history = []
 
-    def update(self, t, show_animation=True):
+    def update(self, t):
         # predict
         x_pre = predict(self.particles)
         # observe
         observation = self.toy.step()
         # resample
         self.particles = resample(x_pre, observation)
-        if show_animation:
-            self.animate(t)
+        return self.animate(t)
 
     def animate(self, t):
-        kde = gaussian_kde(self.particles)
-        x = np.linspace(self.particles.min(), self.particles.max(), 1000)
-        y = kde.pdf(x)
         self.axes.clear()
-        self.axes.plot(x, y)
-        self.axes.plot([self.toy.x, self.toy.x], [y.min(), y.max()])
+
+        n_particles = self.n_particles
+        particles = self.particles
+        o_t = self.toy.x
+        kde = gaussian_kde(particles)
+
+        line = np.linspace(particles.min(), particles.max(), 1000)
+        pdf = kde.pdf(line)
+
+        # add/remove a history item
+        if len(self.history) == self.history_size:
+            self.history = self.history[1:]
+        self.history.append(HistoryItem(t, o_t, line, pdf))
+
+        # plot
+        for item in self.history:
+            self.axes.scatter([item.t] * n_particles, particles, c='g',
+                              marker='x', alpha=0.25)
+            self.axes.plot(item.t + np.array([item.pdf.min(), item.pdf.max()]),
+                           [item.o_t] * 2)
+            self.axes.plot(item.t + item.pdf, item.line)
+
         return self.axes,
 
 
 def main():
-    w = World()
-    ani = FuncAnimation(w.fig, w.update)
-    plt.show()
-    exit(0)
+    sim = ToySimulator(n_particles=50)
+    # ani = FuncAnimation(sim.fig, sim.update)
 
-    n_particles = 300
-    particles = np.random.randn(n_particles)
-    kde = gaussian_kde(particles)
-    x = np.linspace(-5, 5, 100)
-    y = kde.pdf(x)
-    plt.plot(x, y)
-    plt.show()
-
-    toy = RandomWalker1D()
-    # initialize particles
-
-    n_steps = 100
-    for t in range(n_steps):
-        # predict
-        x_pre = predict(particles)
-        observation = toy.step()
-        # resample particles
-        particles = resample(x_pre, observation)
-        print(observation)
-        print(particles)
+    n_steps = 50
+    video_file_name = 'monte_carlo_filter_example'
+    extensions = ['.mp4', '.h264']
+    for ext in extensions:
+        writer = FFMpegWriter()
+        with writer.saving(sim.fig, video_file_name + ext, dpi=100):
+            for t in range(n_steps):
+                sim.update(t)
+                writer.grab_frame()
 
 
 if __name__ == '__main__':
