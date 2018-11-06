@@ -41,10 +41,14 @@ class MonteCarloFilter:
         self.n_particles = n_particles
         self.particles = particle_initializer(self.n_particles)
 
-    def predict(self, particles, sigma=1.0):
+    def predict(self, sigma=1.0):
+        # # (n_states, n_states)
+        # transition_matrix = np.eye(1, dtype=np.float32)
+
         # random walk
         # TODO: can set transition model
-        self.state_pre = particles + np.random.randn(self.n_particles) * sigma
+        noise = np.random.randn(self.n_particles) * sigma
+        self.state_pre = self.particles + noise
         return self.state_pre
 
     def resample(self, observation, sigma=1.0):
@@ -84,7 +88,7 @@ class ToySimulator:
 
     def update(self, t):
         # predict
-        self.filter.predict(self.particles)
+        self.filter.predict()
         # observe
         observation = self.toy.step()
         # resample
