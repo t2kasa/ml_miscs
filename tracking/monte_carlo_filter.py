@@ -31,14 +31,15 @@ class RandomWalker1D:
 
 
 class MonteCarloFilter:
-    def __init__(self, n_particles):
+    def __init__(self, n_particles, particle_initializer=np.random.randn):
         """Creates an instance of `MonteCarloFilter`.
 
-        :param n_particles:
+        :param n_particles: the number of particles.
+        :param n_states: the number of states.
+        :param particle_initializer: particle initializer method.
         """
         self.n_particles = n_particles
-        # TODO: add initialization method
-        self.particles = np.random.randn(self.n_particles)
+        self.particles = particle_initializer(self.n_particles)
 
     def predict(self, particles, sigma=1.0):
         # random walk
