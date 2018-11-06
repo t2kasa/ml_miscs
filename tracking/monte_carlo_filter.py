@@ -6,7 +6,7 @@ matplotlib.use('Qt5Agg')  # NOQA
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm, gaussian_kde
-from matplotlib.animation import FFMpegWriter
+from matplotlib.animation import FFMpegWriter, FuncAnimation
 
 
 class RandomWalker1D:
@@ -30,28 +30,36 @@ class RandomWalker1D:
         return self.x
 
 
-def predict(particles, sigma=1.0):
-    n_particles = len(particles)
-    # random walk
-    x_pre = particles + np.random.randn(n_particles) * sigma
-    return x_pre
+class MonteCarloFilter:
+    def __init__(self, n_particles):
+        """Creates an instance of `MonteCarloFilter`.
 
+        :param n_particles:
+        """
+        self.n_particles = n_particles
+        # TODO: add initialization method
+        self.particles = np.random.randn(self.n_particles)
 
-def resample(x_pre, observation, sigma=1.0):
-    n_particles = len(x_pre)
+    def predict(self, particles, sigma=1.0):
+        # random walk
+        # TODO: can set transition model
+        self.state_pre = particles + np.random.randn(self.n_particles) * sigma
+        return self.state_pre
 
-    # random walk: w_k^(i) = h(y_k|x_{k|k}^(i)) = x_{k|k}^(i) + noise
-    nll = -norm.logpdf(x_pre, loc=observation, scale=sigma)
-    weights = 1 / nll
-    weights /= np.sum(weights)
+    def resample(self, observation, sigma=1.0):
+        # random walk: w_k^(i) = h(y_k|x_{k|k}^(i)) = x_{k|k}^(i) + noise
+        # TODO: can set observation model
+        nll = -norm.logpdf(self.state_pre, loc=observation, scale=sigma)
+        weights = 1 / nll
+        weights /= np.sum(weights)
+        # normalize particle weights
+        weights /= np.sum(weights)
 
-    # normalize particle weights
-    weights /= np.sum(weights)
-
-    # resample
-    indices = np.random.choice(n_particles, size=n_particles, p=weights)
-    resampled_particles = x_pre[indices]
-    return resampled_particles
+        # resample
+        indices = np.random.choice(self.n_particles, size=self.n_particles,
+                                   p=weights)
+        self.particles = self.state_pre[indices]
+        return self.particles
 
 
 class HistoryItem:
@@ -71,14 +79,15 @@ class ToySimulator:
         self.toy = RandomWalker1D()
         self.particles = np.random.randn(self.n_particles)
         self.history = []
+        self.filter = MonteCarloFilter(n_particles)
 
     def update(self, t):
         # predict
-        x_pre = predict(self.particles)
+        self.filter.predict(self.particles)
         # observe
         observation = self.toy.step()
         # resample
-        self.particles = resample(x_pre, observation)
+        self.particles = self.filter.resample(observation)
         return self.animate(t)
 
     def animate(self, t):
@@ -110,7 +119,9 @@ class ToySimulator:
 
 def main():
     sim = ToySimulator(n_particles=50)
-    # ani = FuncAnimation(sim.fig, sim.update)
+    ani = FuncAnimation(sim.fig, sim.update)
+    plt.show()
+    exit(0)
 
     n_steps = 50
     video_file_name = 'monte_carlo_filter_example'
