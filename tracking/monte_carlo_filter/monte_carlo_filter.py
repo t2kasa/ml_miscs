@@ -2,6 +2,8 @@ import numpy as np
 
 
 class MonteCarloFilter:
+    """Monte Carlo Filter, which is a special case of Particle Filter."""
+
     def __init__(self, n_particles, n_states, transition_model,
                  observation_model, particle_initializer=np.random.randn):
         """Creates an instance of `MonteCarloFilter`.
