@@ -8,6 +8,8 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from scipy.stats import gaussian_kde
 
+from tracking.monte_carlo_filter import GaussianObservationModel
+from tracking.monte_carlo_filter import GaussianTransitionModel
 from tracking.monte_carlo_filter import MonteCarloFilter
 
 
@@ -41,15 +43,13 @@ class HistoryItem:
 
 
 class ToySimulator:
-    def __init__(self, n_particles=300, history_size=5):
-        self.n_particles = n_particles
+    def __init__(self, particle_filter, history_size=5):
+        self.filter = particle_filter
         self.history_size = history_size
 
         self.fig, self.axes = plt.subplots(1, 1)
         self.toy = RandomWalker1D()
-        self.particles = np.random.randn(self.n_particles)
         self.history = []
-        self.filter = MonteCarloFilter(n_particles, 1)
 
     def update(self, t):
         # predict
@@ -63,7 +63,7 @@ class ToySimulator:
     def animate(self, t):
         self.axes.clear()
 
-        n_particles = self.n_particles
+        n_particles = len(self.particles)
         particles = self.particles
         o_t = self.toy.x
         kde = gaussian_kde(particles.ravel())
@@ -88,7 +88,16 @@ class ToySimulator:
 
 
 def main():
-    sim = ToySimulator(n_particles=50)
+    n_particles = 50
+    n_states = 1
+    transition_model = GaussianTransitionModel(np.eye(n_states),
+                                               np.eye(n_states))
+    observation_model = GaussianObservationModel(np.eye(n_states),
+                                                 np.eye(n_states))
+    particle_filter = MonteCarloFilter(n_particles, n_states, transition_model,
+                                       observation_model)
+
+    sim = ToySimulator(particle_filter)
     ani = FuncAnimation(sim.fig, sim.update)
     plt.show()
     exit(0)
