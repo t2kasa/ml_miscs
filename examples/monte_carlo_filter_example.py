@@ -13,10 +13,10 @@ from tracking.monte_carlo_filter import GaussianTransitionModel
 from tracking.monte_carlo_filter import MonteCarloFilter
 
 
-class RandomWalker1D:
-    """1D Random walk model.
+class GaussianRandomWalker1D:
+    """1D Gaussian Random Walk model.
 
-    x_k = x_{k - 1} + v_k, v_k \sim N(0, \sigma^2)
+    x_k = x_{k - 1} + v_k, v_k ~ N(0, \sigma^2)
     """
 
     def __init__(self, x_0=0.0, scale=1.0):
@@ -48,7 +48,7 @@ class ToySimulator:
         self.history_size = history_size
 
         self.fig, self.axes = plt.subplots(1, 1)
-        self.toy = RandomWalker1D()
+        self.toy = GaussianRandomWalker1D()
         self.history = []
 
     def update(self, t):
