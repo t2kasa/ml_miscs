@@ -1,8 +1,14 @@
+"""
+1D Monte Carlo Filter example.
+"""
+
+
 import matplotlib
 
 # to show animation in PyCharm
 matplotlib.use('Qt5Agg')  # NOQA
 
+from argparse import ArgumentParser
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
@@ -88,29 +94,36 @@ class ToySimulator:
 
 
 def main():
-    n_particles = 50
+    parser = ArgumentParser()
+    parser.add_argument('--n_particles', type=int, default=50)
+    parser.add_argument('--animation_command', type=str, default='show',
+                        choices=('show', 'save'))
+    args = parser.parse_args()
+
     n_states = 1
     transition_model = GaussianTransitionModel(np.eye(n_states),
                                                np.eye(n_states))
     observation_model = GaussianObservationModel(np.eye(n_states),
                                                  np.eye(n_states))
-    particle_filter = MonteCarloFilter(n_particles, n_states, transition_model,
+    particle_filter = MonteCarloFilter(args.n_particles, n_states,
+                                       transition_model,
                                        observation_model)
 
     sim = ToySimulator(particle_filter)
-    ani = FuncAnimation(sim.fig, sim.update)
-    plt.show()
-    exit(0)
-
-    n_steps = 50
-    video_file_name = 'monte_carlo_filter_example'
-    extensions = ['.mp4', '.h264']
-    for ext in extensions:
-        writer = FFMpegWriter()
-        with writer.saving(sim.fig, video_file_name + ext, dpi=100):
-            for t in range(n_steps):
-                sim.update(t)
-                writer.grab_frame()
+    if args.animation_command == 'show':
+        ani = FuncAnimation(sim.fig, sim.update)
+        plt.show()
+        return
+    elif args.animation_command == 'save':
+        n_steps = 50
+        video_file_name = 'monte_carlo_filter_example'
+        extensions = ['.mp4', '.h264']
+        for ext in extensions:
+            writer = FFMpegWriter()
+            with writer.saving(sim.fig, video_file_name + ext, dpi=100):
+                for t in range(n_steps):
+                    sim.update(t)
+                    writer.grab_frame()
 
 
 if __name__ == '__main__':
