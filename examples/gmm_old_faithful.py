@@ -1,16 +1,11 @@
 import matplotlib.pyplot as plt
-import numpy as np
-from scipy.stats import multivariate_normal
 from matplotlib.patches import Ellipse
-
 from scipy.stats import chi2
-
-from k_means import KMeans
 
 from gmm import *
 
 
-def normalize_each_axis(x: np.ndarray):
+def _normalize(x: np.ndarray):
     _, n_features = x.shape
 
     x_norm = np.empty_like(x)
@@ -22,74 +17,60 @@ def normalize_each_axis(x: np.ndarray):
 def get_data():
     data_file = 'D:/Dropbox/Projects/_GitHub/PRML/datasets/faithful.csv'
     x = np.genfromtxt(data_file, delimiter=',', skip_header=True)
-    x = normalize_each_axis(x)
+    x = _normalize(x)
     return x
 
 
-def _eig_sort(a)
+def _eig_sort(a):
     values, vectors = np.linalg.eig(a)
     order = values.argsort()[::-1]
     values, vectors = values[order], vectors[:, order]
     return values, vectors
 
 
-def plot_gmm_contours(mu, sigma):
-    n_components = len(mu)
-
-    confidence = 0.95
+def plot_gmm_confidence_ellipses(mean, cov, ellipse_colors, confidence=0.95,
+                                 plot_eigenvectors=True):
+    n_components = len(mean)
     alpha = np.sqrt(chi2(2).ppf(confidence))
 
-    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
-    axes.set_xlim(-2.0, 2.0)
-    axes.set_ylim(-2.0, 2.0)
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    ax.set_xlim(-2.0, 2.0)
+    ax.set_ylim(-2.0, 2.0)
 
     for k in range(n_components):
-        values, vectors = _eig_sort(sigma[k])
-
-        width, height = 2 * alpha * np.sqrt(values)
+        # plot ellipse from covariance
+        values, vectors = _eig_sort(cov[k])
+        w, h = 2 * alpha * np.sqrt(values)
         angle = np.degrees(np.arctan2(vectors[0, 1], vectors[0, 0]))
-        theta = np.degrees(np.arctan((values[0] - values[1]) / sigma[k][0, 1]))
-        theta2 = np.degrees(np.arctan2(*vectors[:, 0][::-1]))
+        ax.add_artist(
+            Ellipse(mean[k], w, h, angle, color=ellipse_colors[k], fill=False))
 
-        print(k, width, height, angle, theta, theta2)
+        # plot eigenvectors if needed
+        if plot_eigenvectors:
+            eigen_lines = [np.stack([mean[k], mean[k] + vectors[:, 0] * w / 2]),
+                           np.stack([mean[k], mean[k] + vectors[:, 1] * h / 2])]
+            for line in eigen_lines:
+                ax.plot(line[:, 0], line[:, 1], 'black')
 
-        line1 = np.stack([mu[k], mu[k] + values[0] * vectors[0]])
-        line2 = np.stack([mu[k], mu[k] + values[1] * vectors[1]])
-        axes.plot(line1[:, 0], line1[:, 1], 'green')
-        axes.plot(line2[:, 0], line2[:, 1], 'orange')
-
-        e = Ellipse(mu[k], width, height, angle, color='blue', fill=False)
-        axes.add_artist(e)
-    fig.show()
+    return fig, ax
 
 
 def main():
     n_iters = 20
     n_components = 2
-
     x = get_data()
-    n_samples, n_features = x.shape
 
     # initialize model params
-    k_means = KMeans(n_components)
-    assigned_indices = k_means.fit_predict(x)
-    mean = k_means.centers
-
-    pi = np.zeros(n_components)
-    cov = np.zeros((n_components, n_features, n_features))
-    for k in range(n_components):
-        cond = assigned_indices == k
-        d_k = x[cond] - mean[k]
-        pi[k] = np.sum(cond) / n_samples
-        cov[k] = np.dot(d_k.T, d_k) / np.sum(cond)
-
-    plot_gmm_contours(mean, cov)
+    pi, mean, cov = init_params(x, n_components)
 
     for _ in range(n_iters):
         gamma = e_step_understandable(x, pi, mean, cov)
         pi, mean, cov = m_step_understandable(x, gamma)
-        print(log_likelihood_understandable(x, pi, mean, cov))
-    plot_gmm_contours(mean, cov)
+        print(compute_log_likelihood(x, pi, mean, cov),
+              log_likelihood_understandable(x, pi, mean, cov))
+
+    fig, ax = plot_gmm_confidence_ellipses(mean, cov, ellipse_colors=('b', 'r'))
+    fig.show()
 
 
 if __name__ == '__main__':

@@ -1,6 +1,35 @@
 import numpy as np
 from scipy.stats import multivariate_normal
 
+from k_means import KMeans
+
+
+def init_params(x, n_components):
+    """Initialize GMM parameters by K-means.
+
+    :param x: (n_samples, n_features) features.
+    :param n_components: the number of components.
+    :return: Initialized GMM parameters:
+        pi: (n_components,) mixing coefficients
+        mean: (n_components, n_features) means
+        cov: (n_components, n_features, n_features) covariances
+    """
+    n_samples, n_features = x.shape
+
+    k_means = KMeans(n_components)
+    assigned_indices = k_means.fit_predict(x)
+    mean_init = k_means.centers
+
+    pi_init = np.zeros(n_components)
+    cov_init = np.zeros((n_components, n_features, n_features))
+    for k in range(n_components):
+        cond = assigned_indices == k
+        d_k = x[cond] - mean_init[k]
+        pi_init[k] = np.sum(cond) / n_samples
+        cov_init[k] = np.dot(d_k.T, d_k) / np.sum(cond)
+
+    return pi_init, mean_init, cov_init
+
 
 def e_step(x, pi, mean, cov):
     """Expectation Step.
@@ -113,21 +142,24 @@ def m_step_understandable(x, gamma):
     return pi, mean, cov
 
 
-# def log_likelihood(x, pi, mean, cov):
-#     pass
-#     n_components = len(pi)
-#
-#     res = 0.0
-#     for k in range(n_components):
-#         multivariate_normal.pdf(x, )
+def compute_log_likelihood(x, pi, mean, cov):
+    n_samples = len(x)
+    n_components = len(pi)
+
+    probs = np.zeros((n_samples, n_components))
+    for k in range(n_components):
+        probs[:, k] = pi[k] * multivariate_normal.pdf(x, mean[k], cov[k])
+
+    log_likelihood = np.sum(np.log(np.sum(probs, axis=1)))
+    return log_likelihood
 
 
 def log_likelihood_understandable(x, pi, mean, cov):
     n_samples, _ = x.shape
 
-    log_prob = 0.0
+    log_likelihood = 0.0
     for n in range(n_samples):
         pdf_n = pi * np.array([multivariate_normal.pdf(x[n], mean_k, cov_k)
                                for mean_k, cov_k in zip(mean, cov)])
-        log_prob += np.log(np.sum(pdf_n))
-    return log_prob
+        log_likelihood += np.log(np.sum(pdf_n))
+    return log_likelihood
