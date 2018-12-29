@@ -60,6 +60,9 @@ def main():
     n_components = 2
     x = get_data()
 
+    gmm = GMM(n_components)
+    history = gmm.fit(x).history
+
     # initialize model params
     pi, mean, cov = init_params(x, n_components)
 

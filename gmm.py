@@ -4,6 +4,74 @@ from scipy.stats import multivariate_normal
 from k_means import KMeans
 
 
+class GMM:
+    def __init__(self, n_components, max_iters=100, tol=1e-3):
+        self.n_components = n_components
+        self.max_iters = max_iters
+        self.tol = tol
+        self.pi = None
+        self.mean = None
+        self.cov = None
+        self.history = []
+
+    def _init_params(self, x):
+        """Initialize GMM parameters by K-means.
+
+        :param x: (n_samples, n_features) features.
+        :param n_components: the number of components.
+        :return: Initialized GMM parameters:
+            pi: (n_components,) mixing coefficients
+            mean: (n_components, n_features) means
+            cov: (n_components, n_features, n_features) covariances
+        """
+        n_samples, n_features = x.shape
+
+        k_means = KMeans(self.n_components)
+        assigned_indices = k_means.fit_predict(x)
+        mean_init = k_means.centers
+
+        pi_init = np.zeros(self.n_components)
+        cov_init = np.zeros((self.n_components, n_features, n_features))
+        for k in range(self.n_components):
+            cond = assigned_indices == k
+            d_k = x[cond] - mean_init[k]
+            pi_init[k] = np.sum(cond) / n_samples
+            cov_init[k] = np.dot(d_k.T, d_k) / np.sum(cond)
+
+        return pi_init, mean_init, cov_init
+
+    def fit(self, x):
+        self.pi, self.mean, self.cov = self._init_params(x)
+        self.history = {
+            'pi': [self.pi],
+            'mean': [self.mean],
+            'cov': [self.cov],
+            'log_likelihood': [
+                compute_log_likelihood(x, self.pi, self.mean, self.cov)]
+        }
+
+        prev_log_likelihood = None
+        for i in range(self.max_iters):
+            gamma = e_step_understandable(x, self.pi, self.mean, self.cov)
+            self.pi, self.mean, self.cov = m_step_understandable(x, gamma)
+            log_likelihood = compute_log_likelihood(x, self.pi, self.mean,
+                                                    self.cov)
+
+            self.history['pi'].append(self.pi)
+            self.history['mean'].append(self.mean)
+            self.history['cov'].append(self.cov)
+            self.history['log_likelihood'].append(log_likelihood)
+
+            # convergence check
+            if prev_log_likelihood is not None and \
+                    np.abs(prev_log_likelihood - log_likelihood) < self.tol:
+                break
+
+            prev_log_likelihood = log_likelihood
+
+        return self
+
+
 def init_params(x, n_components):
     """Initialize GMM parameters by K-means.
 
