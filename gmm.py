@@ -42,17 +42,20 @@ class GMM:
         return pi_init, mean_init, cov_init
 
     def fit(self, x):
+        """Estimates model parameters.
+
+        :param x: (n_samples, n_features) features.
+        :return: self
+        """
+
         # initialize params unless all params are not None.
         if any([self.pi is None, self.mean is None, self.cov is None]):
             self.pi, self.mean, self.cov = self._init_params(x)
 
-        self.history = [{
-            'pi': self.pi,
-            'mean': self.mean,
-            'cov': self.cov,
-            'log_likelihood': self._log_likelihood(x, self.pi, self.mean,
-                                                   self.cov)
-        }]
+        gamma = self._e_step(x, self.pi, self.mean, self.cov)
+        log_likelihood = self._log_likelihood(x, self.pi, self.mean, self.cov)
+        self.history = [{'gamma': gamma, 'pi': self.pi, 'mean': self.mean,
+                         'cov': self.cov, 'log_likelihood': log_likelihood}]
 
         prev_log_likelihood = None
         for i in range(self.max_iters):
@@ -62,8 +65,8 @@ class GMM:
                                                   self.cov)
 
             self.history.append(
-                {'pi': self.pi, 'mean': self.mean, 'cov': self.cov,
-                 'log_likelihood': log_likelihood})
+                {'gamma': gamma, 'pi': self.pi, 'mean': self.mean,
+                 'cov': self.cov, 'log_likelihood': log_likelihood})
 
             # convergence check
             if prev_log_likelihood is not None and \
@@ -126,6 +129,14 @@ class GMM:
 
     @staticmethod
     def _log_likelihood(x, pi, mean, cov):
+        """Computes log-likelihood.
+
+        :param x: (n_samples, n_features) features.
+        :param pi: (n_components,) mixing coefficients
+        :param mean: (n_components, n_features) means
+        :param cov: (n_components, n_features, n_features) covariances
+        :return: Computed log-likelihood.
+        """
         n_samples = len(x)
         n_components = len(pi)
 

@@ -1,8 +1,11 @@
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.animation import FFMpegWriter
+from matplotlib.colors import BASE_COLORS, to_rgb
 from matplotlib.patches import Ellipse
 from scipy.stats import chi2
-from matplotlib.colors import BASE_COLORS
-from gmm import *
+
+from gmm import GMM
 
 
 def _normalize(x: np.ndarray):
@@ -14,9 +17,10 @@ def _normalize(x: np.ndarray):
     return x_norm
 
 
-def get_data():
-    data_file = 'D:/Dropbox/Projects/_GitHub/PRML/datasets/faithful.csv'
-    x = np.genfromtxt(data_file, delimiter=',', skip_header=True)
+def _get_faithful_data():
+    from pathlib import Path
+    data_file = Path(__file__).parent / '../datasets/faithful.csv'
+    x = np.genfromtxt(str(data_file), delimiter=',', skip_header=True)
     x = _normalize(x)
     return x
 
@@ -30,8 +34,8 @@ def _eig_sort(a):
 
 def plot_gmm_confidence_ellipses(ax, mean, cov, colors, confidence=0.95,
                                  plot_eigenvectors=True):
-    n_components = len(mean)
-    alpha = np.sqrt(chi2(2).ppf(confidence))
+    n_components, n_features = mean.shape
+    alpha = np.sqrt(chi2(n_features).ppf(confidence))
 
     ax.set_xlim(-2.0, 2.0)
     ax.set_ylim(-2.0, 2.0)
@@ -48,28 +52,44 @@ def plot_gmm_confidence_ellipses(ax, mean, cov, colors, confidence=0.95,
         if plot_eigenvectors:
             arrow_params = {'color': colors[k], 'length_includes_head': True,
                             'head_width': 0.05, 'head_length': 0.1}
-
             ax.arrow(*mean[k], *(vectors[:, 0] * w / 2), **arrow_params)
             ax.arrow(*mean[k], *(vectors[:, 1] * h / 2), **arrow_params)
 
-            # eigen_lines = [np.stack([mean[k], mean[k] + vectors[:, 0] * w / 2]),
-            #                np.stack([mean[k], mean[k] + vectors[:, 1] * h / 2])]
-            # for line in eigen_lines:
-            #     ax.arrow(*mean, color=colors[k])
-            #     # ax.plot(line[:, 0], line[:, 1], colors[k])
-            #
 
-def save_history_as_video_file(history, save_video_file):
+def plot_data_samples(ax, x, gamma, colors):
+    """Plot data samples.
+
+    :param ax: axes.
+    :param x: (n_samples, n_features) features.
+    :param gamma: (n_samples, n_components) responsibilities.
+    :param colors: component colors.
+    """
+    color_values = np.array([to_rgb(c) for c in colors])
+    n_samples, n_components = gamma.shape
+
+    mixed_plot_colors = np.sum([gamma[:, k:k + 1] * color_values[k] for k in
+                                range(n_components)], axis=0)
+    ax.scatter(x[:, 0], x[:, 1], c=mixed_plot_colors)
+
+
+def save_history_as_video_file(x, n_components, history, save_video_file):
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 
     def animate(t):
         nonlocal history, ax
         ax.clear()
+
+        colors = list(BASE_COLORS)[:n_components]
+
         plot_gmm_confidence_ellipses(ax, history[t]['mean'], history[t]['cov'],
-                                     colors=list(BASE_COLORS.keys()))
+                                     colors=colors)
+        plot_data_samples(ax, x, history[t]['gamma'], colors=colors)
+
+        ax.set_title('iteration = {:02d}, log_likelihood = {:.3f}'.format(
+            t, history[t]['log_likelihood']))
+
         return ax,
 
-    from matplotlib.animation import FFMpegWriter
     writer = FFMpegWriter(fps=1)
     with writer.saving(fig, save_video_file, dpi=100):
         for t in range(len(history)):
@@ -78,16 +98,19 @@ def save_history_as_video_file(history, save_video_file):
 
 
 def main():
-    n_components = 4
-    x = get_data()
-    gmm = GMM(n_components)
+    n_components = 2
+    x = _get_faithful_data()
+    _, n_features = x.shape
 
-    # gmm = GMM(n_components,
-    #           pi_init=np.ones(n_components) / n_components,
-    #           mean_init=np.stack([[0.0, 1.0], [0.0, -1.0]]),
-    #           cov_init=np.stack([0.1 * np.eye(2), 0.1 * np.eye(2)]))
+    pi_init = np.random.uniform(size=n_components)
+    pi_init = pi_init / np.sum(pi_init)
+    mean_init = np.random.randn(n_components, n_features)
+    cov_init = np.stack([np.random.uniform() * np.eye(n_features),
+                         np.random.uniform() * np.eye(n_features)])
+    gmm = GMM(n_components, pi_init=pi_init, mean_init=mean_init,
+              cov_init=cov_init)
     history = gmm.fit(x).history
-    save_history_as_video_file(history, 'gmm.mp4')
+    save_history_as_video_file(x, n_components, history, 'gmm_em.mp4')
 
 
 if __name__ == '__main__':
