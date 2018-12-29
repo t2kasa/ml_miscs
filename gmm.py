@@ -23,6 +23,27 @@ def e_step(x, pi, mean, cov):
     return gamma
 
 
+def e_step_understandable(x, pi, mean, cov):
+    """Expectation Step.
+
+    :param x: (n_samples, n_features) features.
+    :param pi: (n_components,) mixing coefficients.
+    :param mean: (n_components, n_features) means.
+    :param cov: (n_components, n_features, n_features) covariances.
+    :return: (n_samples, n_components) responsibilities.
+    """
+    n_samples = len(x)
+    n_components = len(pi)
+
+    gamma = np.zeros((n_samples, n_components))
+
+    for n in range(n_samples):
+        pdf_n = pi * np.array([multivariate_normal.pdf(x[n], mean_k, cov_k)
+                               for mean_k, cov_k in zip(mean, cov)])
+        gamma[n] = pdf_n / np.sum(pdf_n)
+    return gamma
+
+
 def m_step(x, gamma):
     """Maximization step.
 
@@ -90,3 +111,23 @@ def m_step_understandable(x, gamma):
     cov = np.stack(cov)
 
     return pi, mean, cov
+
+
+# def log_likelihood(x, pi, mean, cov):
+#     pass
+#     n_components = len(pi)
+#
+#     res = 0.0
+#     for k in range(n_components):
+#         multivariate_normal.pdf(x, )
+
+
+def log_likelihood_understandable(x, pi, mean, cov):
+    n_samples, _ = x.shape
+
+    log_prob = 0.0
+    for n in range(n_samples):
+        pdf_n = pi * np.array([multivariate_normal.pdf(x[n], mean_k, cov_k)
+                               for mean_k, cov_k in zip(mean, cov)])
+        log_prob += np.log(np.sum(pdf_n))
+    return log_prob

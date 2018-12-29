@@ -1,8 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import multivariate_normal
+from matplotlib.patches import Ellipse
 
-from gmm import e_step, m_step
+from scipy.stats import chi2
+
+from k_means import KMeans
+
+from gmm import *
 
 
 def normalize_each_axis(x: np.ndarray):
@@ -21,31 +26,40 @@ def get_data():
     return x
 
 
-def plot_gmm_contours(mu, sigma):
-    xx, yy = np.meshgrid(np.linspace(-2.0, 2.0, 100),
-                         np.linspace(-2.0, 2.0, 100))
-    xy = np.stack([xx.flat, yy.flat], axis=1)
+def _eig_sort(a)
+    values, vectors = np.linalg.eig(a)
+    order = values.argsort()[::-1]
+    values, vectors = values[order], vectors[:, order]
+    return values, vectors
 
+
+def plot_gmm_contours(mu, sigma):
     n_components = len(mu)
-    cmaps = [plt.cm.winter, plt.cm.autumn]
+
+    confidence = 0.95
+    alpha = np.sqrt(chi2(2).ppf(confidence))
 
     fig, axes = plt.subplots(1, 1, figsize=(8, 8))
     axes.set_xlim(-2.0, 2.0)
     axes.set_ylim(-2.0, 2.0)
 
     for k in range(n_components):
-        z = multivariate_normal.pdf(xy, mu[k], sigma[k])
-        zz = np.reshape(z, xx.shape)
+        values, vectors = _eig_sort(sigma[k])
 
-        values, vectors = np.linalg.eig(cov[0])
-        angle = np.angle(np.complex(vectors[0, 0], vectors[0, 1]))
-        e = Ellipse(mean[0], values[0], values[1], angle, color='blue',
-                    fill=False)
-        ax.add_artist(e)
-        fig.show()
+        width, height = 2 * alpha * np.sqrt(values)
+        angle = np.degrees(np.arctan2(vectors[0, 1], vectors[0, 0]))
+        theta = np.degrees(np.arctan((values[0] - values[1]) / sigma[k][0, 1]))
+        theta2 = np.degrees(np.arctan2(*vectors[:, 0][::-1]))
 
-        axes.contour(xx, yy, zz, levels=0.12, cmap=cmaps[k])
+        print(k, width, height, angle, theta, theta2)
 
+        line1 = np.stack([mu[k], mu[k] + values[0] * vectors[0]])
+        line2 = np.stack([mu[k], mu[k] + values[1] * vectors[1]])
+        axes.plot(line1[:, 0], line1[:, 1], 'green')
+        axes.plot(line2[:, 0], line2[:, 1], 'orange')
+
+        e = Ellipse(mu[k], width, height, angle, color='blue', fill=False)
+        axes.add_artist(e)
     fig.show()
 
 
@@ -57,25 +71,25 @@ def main():
     n_samples, n_features = x.shape
 
     # initialize model params
-    pi = np.ones(n_components) / n_components
-    mean = np.array([[-1.0, 1.0], [1.0, -1.0]])
-    cov = np.tile(np.eye(n_features), (n_components, 1, 1))
+    k_means = KMeans(n_components)
+    assigned_indices = k_means.fit_predict(x)
+    mean = k_means.centers
 
-    from matplotlib.patches import Ellipse
-    fig, ax = plt.subplots()
-    ax.set_xlim(-2.0, 2.0)
-    ax.set_ylim(-2.0, 2.0)
+    pi = np.zeros(n_components)
+    cov = np.zeros((n_components, n_features, n_features))
+    for k in range(n_components):
+        cond = assigned_indices == k
+        d_k = x[cond] - mean[k]
+        pi[k] = np.sum(cond) / n_samples
+        cov[k] = np.dot(d_k.T, d_k) / np.sum(cond)
 
-    values, vectors = np.linalg.eig(cov[0])
-    angle = np.angle(np.complex(vectors[0, 0], vectors[0, 1]))
-    e = Ellipse(mean[0], values[0], values[1], angle, color='blue', fill=False)
-    ax.add_artist(e)
-    fig.show()
+    plot_gmm_contours(mean, cov)
 
-    # for _ in range(n_iters):
-    #     gamma = e_step(x, pi, mean, cov)
-    #     pi, mean, cov = m_step(x, gamma)
-    #     plot_gmm_contours(mean, cov)
+    for _ in range(n_iters):
+        gamma = e_step_understandable(x, pi, mean, cov)
+        pi, mean, cov = m_step_understandable(x, gamma)
+        print(log_likelihood_understandable(x, pi, mean, cov))
+    plot_gmm_contours(mean, cov)
 
 
 if __name__ == '__main__':
