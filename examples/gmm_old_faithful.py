@@ -2,10 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FFMpegWriter
 from matplotlib.colors import BASE_COLORS, to_rgb
-from matplotlib.patches import Ellipse
-from scipy.stats import chi2
 
 from gmm import GMM
+from utils.vis_utils import plot_gmm_confidence_ellipses
 
 
 def _normalize(x: np.ndarray):
@@ -23,37 +22,6 @@ def _get_faithful_data():
     x = np.genfromtxt(str(data_file), delimiter=',', skip_header=True)
     x = _normalize(x)
     return x
-
-
-def _eig_sort(a):
-    values, vectors = np.linalg.eig(a)
-    order = values.argsort()[::-1]
-    values, vectors = values[order], vectors[:, order]
-    return values, vectors
-
-
-def plot_gmm_confidence_ellipses(ax, mean, cov, colors, confidence=0.95,
-                                 plot_eigenvectors=True):
-    n_components, n_features = mean.shape
-    alpha = np.sqrt(chi2(n_features).ppf(confidence))
-
-    ax.set_xlim(-2.0, 2.0)
-    ax.set_ylim(-2.0, 2.0)
-
-    for k in range(n_components):
-        # plot ellipse from covariance
-        values, vectors = _eig_sort(cov[k])
-        w, h = 2 * alpha * np.sqrt(values)
-        angle = np.degrees(np.arctan2(vectors[1, 0], vectors[0, 0]))
-        ax.add_artist(
-            Ellipse(mean[k], w, h, angle, color=colors[k], fill=False))
-
-        # plot eigenvectors if needed
-        if plot_eigenvectors:
-            arrow_params = {'color': colors[k], 'length_includes_head': True,
-                            'head_width': 0.05, 'head_length': 0.1}
-            ax.arrow(*mean[k], *(vectors[:, 0] * w / 2), **arrow_params)
-            ax.arrow(*mean[k], *(vectors[:, 1] * h / 2), **arrow_params)
 
 
 def plot_data_samples(ax, x, gamma, colors):
@@ -74,6 +42,9 @@ def plot_data_samples(ax, x, gamma, colors):
 
 def save_history_as_video_file(x, n_components, history, save_video_file):
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+
+    ax.set_xlim(-2.0, 2.0)
+    ax.set_ylim(-2.0, 2.0)
 
     def animate(t):
         nonlocal history, ax
