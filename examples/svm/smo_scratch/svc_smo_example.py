@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=str, default='auto')
     # toy data config
     parser.add_argument('--n_features', type=int, default=2)
-    parser.add_argument('--n_samples_per_label', type=int, default=200)
+    parser.add_argument('--n_samples_per_label', type=int, default=25)
     parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
 
@@ -28,4 +28,5 @@ if __name__ == '__main__':
     clf.fit(x_train, y_train)
     if args.n_features == 2:
         ax = vis_decision_boundary_2d(clf)
+        ax.set_title(f'$C = {args.C}$, n_iters = {clf.n_iters}')
         plt.show()
